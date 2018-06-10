@@ -5,14 +5,15 @@
 
 from __future__ import print_function
 import numpy as np
+import time
 
 
 class Board(object):
     """board for the game"""
 
     def __init__(self, **kwargs):
-        self.width = int(kwargs.get('width', 8))
-        self.height = int(kwargs.get('height', 8))
+        self.width = int(kwargs.get('width', 9))
+        self.height = int(kwargs.get('height', 9))
         # board states stored as a dict,
         # key: move as location on the board,
         # value: player as pieces type
@@ -58,7 +59,7 @@ class Board(object):
         state shape: 4*width*height
         """
 
-        square_state = np.zeros((4, self.width, self.height))
+        square_state = np.zeros((5, self.width, self.height))
         if self.states:
             moves, players = np.array(list(zip(*self.states.items())))
             move_curr = moves[players == self.current_player]
@@ -67,11 +68,17 @@ class Board(object):
                             move_curr % self.height] = 1.0
             square_state[1][move_oppo // self.width,
                             move_oppo % self.height] = 1.0
+            square_state[2][:,:] = 1.0 # show the size of board
             # indicate the last move location
-            square_state[2][self.last_move // self.width,
+            square_state[3][self.last_move // self.width,
                             self.last_move % self.height] = 1.0
         if len(self.states) % 2 == 0:
-            square_state[3][:, :] = 1.0  # indicate the colour to play
+            square_state[4][:, :] = 1.0  # indicate the colour to play
+        #else:
+        #    square_state[3][:, :] = -1.0  # indicate the colour to play
+            # 1 means xianshou/black
+            # 0 means housou/white
+            # also shows the board info here which seems to be crucial to let AI know the board size
         return square_state[:, ::-1, :]
 
     def do_move(self, move):
@@ -151,7 +158,9 @@ class Game(object):
             for j in range(width):
                 loc = i * width + j
                 p = board.states.get(loc, -1)
-                if p == player1:
+                if p == board.last_move:
+                    print('*'.center(8), end='')
+                elif p == player1:
                     print('X'.center(8), end='')
                 elif p == player2:
                     print('O'.center(8), end='')
@@ -159,35 +168,35 @@ class Game(object):
                     print('_'.center(8), end='')
             print('\r\n\r\n')
 
-    def start_play(self, player1, player2, start_player=0, is_shown=1):
-        """start a game between two players"""
-        if start_player not in (0, 1):
-            raise Exception('start_player should be either 0 (player1 first) '
-                            'or 1 (player2 first)')
-        self.board.init_board(start_player)
-        p1, p2 = self.board.players
-        player1.set_player_ind(p1)
-        player2.set_player_ind(p2)
-        players = {p1: player1, p2: player2}
-        if is_shown:
-            self.graphic(self.board, player1.player, player2.player)
-        while True:
-            current_player = self.board.get_current_player()
-            player_in_turn = players[current_player]
-            move = player_in_turn.get_action(self.board)
-            self.board.do_move(move)
-            if is_shown:
-                self.graphic(self.board, player1.player, player2.player)
-            end, winner = self.board.game_end()
-            if end:
-                if is_shown:
-                    if winner != -1:
-                        print("Game end. Winner is", players[winner])
-                    else:
-                        print("Game end. Tie")
-                return winner
+    #def start_play(self, player1, player2, start_player=0, is_shown=1):
+    #    """start a game between two players"""
+    #    if start_player not in (0, 1):
+    #        raise Exception('start_player should be either 0 (player1 first) '
+    #                        'or 1 (player2 first)')
+    #    self.board.init_board(start_player)
+    #    p1, p2 = self.board.players
+    #    player1.set_player_ind(p1)
+    #    player2.set_player_ind(p2)
+    #    players = {p1: player1, p2: player2}
+    #    if is_shown:
+    #        self.graphic(self.board, player1.player, player2.player)
+    #    while True:
+    #        current_player = self.board.get_current_player()
+    #        player_in_turn = players[current_player]
+    #        move = player_in_turn.get_action(self.board)
+    #        self.board.do_move(move)
+    #        if is_shown:
+    #            self.graphic(self.board, player1.player, player2.player)
+    #        end, winner = self.board.game_end()
+    #        if end:
+    #            if is_shown:
+    #                if winner != -1:
+    #                    print("Game end. Winner is", players[winner])
+    #                else:
+    #                    print("Game end. Tie")
+    #            return winner
 
-    def start_self_play(self, player, is_shown=0, temp=1e-3):
+    def start_self_play(self, player, s, addr, is_shown=0, temp=1e-3):
         """ start a self-play game using a MCTS player, reuse the search tree,
         and store the self-play data: (state, mcts_probs, z) for training
         """
@@ -197,6 +206,8 @@ class Game(object):
         while True:
             move, move_probs = player.get_action(self.board,
                                                  temp=temp,
+                                                 s=s,
+                                                 addr=addr,
                                                  return_prob=1)
             # store the data
             states.append(self.board.current_state())

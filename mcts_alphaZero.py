@@ -7,6 +7,7 @@ network to guide the tree search and evaluate the leaf nodes
 """
 
 import numpy as np
+import time
 import copy
 
 
@@ -103,7 +104,7 @@ class MCTS(object):
         self._c_puct = c_puct
         self._n_playout = n_playout
 
-    def _playout(self, state):
+    def _playout(self, state, time_info, s, addr):
         """Run a single playout from the root to the leaf, getting a value at
         the leaf and propagating it back through its parents.
         State is modified in-place, so a copy must be provided.
@@ -113,16 +114,49 @@ class MCTS(object):
             if node.is_leaf():
                 break
             # Greedily select next move.
+            start = time.time()
             action, node = node.select(self._c_puct)
+            end = time.time()
+            time_info[0] += end - start
+            start = time.time()
             state.do_move(action)
+            end = time.time()
+            time_info[1] += end - start
+        # time1 is 0.13
 
         # Evaluate the leaf using a network which outputs a list of
         # (action, probability) tuples p and also a score v in [-1, 1]
         # for the current player.
-        action_probs, leaf_value = self._policy(state)
+
+        start = time.time()
+
+        import pickle
+        pkl = pickle.dumps(state.current_state(), protocol=2)
+        s.sendto(pkl, addr)
+
+
+        result, addr = s.recvfrom(20480)
+
+        #action_probs, leaf_value = self._policy(state)
+        acts_probs, leaf_value = pickle.loads(result)
+
+        legal_positions = state.availables
+        legal_actprob = acts_probs[legal_positions]
+        action_probs = zip(legal_positions, legal_actprob)
+        
+        #print('action_probs', action_probs)
+        #print('leaf_value', leaf_value)
+
+
+        end = time.time()
+        time_info[2] += end - start
         # Check for end of game.
-        end, winner = state.game_end()
-        if not end:
+        # time2 = 0.25
+        start = time.time()
+        end_state, winner = state.game_end()
+        #print('isend', end)
+        #time.sleep(1)
+        if not end_state:
             node.expand(action_probs)
         else:
             # for end state，return the "true" leaf_value
@@ -133,19 +167,45 @@ class MCTS(object):
                     1.0 if winner == state.get_current_player() else -1.0
                 )
 
+        end = time.time()
+        time_info[3] += end - start
         # Update value and visit count of nodes in this traversal.
+        start = time.time()
         node.update_recursive(-leaf_value)
+        end = time.time()
+        time_info[4] += end - start
 
-    def get_move_probs(self, state, temp=1e-3):
+    def get_move_probs(self, state, s, addr, temp=1e-3):
         """Run all playouts sequentially and return the available actions and
         their corresponding probabilities.
         state: the current game state
         temp: temperature parameter in (0, 1] controls the level of exploration
         """
-        for n in range(self._n_playout):
-            state_copy = copy.deepcopy(state)
-            self._playout(state_copy)
 
+        verbose = True
+        start_all = time.time()
+        in_time_info = [0,0,0,0,0]
+        out_time_info = [0,0]
+        for n in range(self._n_playout):
+            start = time.time()
+            state_copy = copy.deepcopy(state)
+            end = time.time()
+            out_time_info[0] += end - start
+            # end1 0.0001s
+            start = time.time()
+            self._playout(state_copy, in_time_info, s, addr)
+            end = time.time()
+            out_time_info[1] += end - start
+            #end2 = time.time()
+            # end2 0.002s
+            #print('end1', end1-start)
+            #print('end2', end2-end1)
+
+        end_all = time.time()
+        if verbose:
+            print('n_playout time:', end_all-start_all)
+            print('in_time info:', in_time_info)
+            print('out_time info:', out_time_info)
         # calc the move probabilities based on visit counts at the root node
         act_visits = [(act, node._n_visits)
                       for act, node in self._root._children.items()]
@@ -182,12 +242,15 @@ class MCTSPlayer(object):
     def reset_player(self):
         self.mcts.update_with_move(-1)
 
-    def get_action(self, board, temp=1e-3, return_prob=0):
+    def get_action(self, board, s, addr, temp=1e-3, return_prob=0):
         sensible_moves = board.availables
         # the pi vector returned by MCTS as in the alphaGo Zero paper
         move_probs = np.zeros(board.width*board.height)
         if len(sensible_moves) > 0:
-            acts, probs = self.mcts.get_move_probs(board, temp)
+            #start = time.time()
+            acts, probs = self.mcts.get_move_probs(board, s, addr, temp)
+            #end = time.time()
+            #print('get_move_probs: end-start', end-start)
             move_probs[list(acts)] = probs
             if self._is_selfplay:
                 # add Dirichlet Noise for exploration (needed for
