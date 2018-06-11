@@ -8,11 +8,11 @@ import cPickle as pickle
 import random
 import numpy as np
 from collections import deque
-import time,sys
+import time,sys,os
 
 import socket  
 import mxnet as mx
-from policy_value_net_mxnet import PolicyValueNet # Keras
+from policy_value_net_mxnet import PolicyValueNetPredict as PolicyValueNet # Keras
 from multiprocessing import Queue, Process
 
 address = ('10.0.0.9',10004)
@@ -20,9 +20,12 @@ s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 s.bind(address)  
 print('server is ready')
 
-batch_size = 512
+batch_size = 28
 learning_rate = 1e-3
 epochs = 5
+
+
+FileName = 'current_policy.caffemodel'
 
 def producer(data_Q):
     print('waiting data')
@@ -34,16 +37,44 @@ def producer(data_Q):
 def consumer(data_Q):
     policy_value_net = PolicyValueNet(9,9)
     while True:
+        if (open('model.log').readlines()[0].strip()=='1'):
+            policy_value_net.update_predict(FileName)
+            os.system('echo 0 > model.log')
+            break
+    print('consumer is ready')
+    cnt = 0
+    data_buffer = []
+    addr_buffer = []
+    while True:
         board, addr = data_Q.get(True)
-        start = time.time()
-        if len(board.shape) == 3:
-            board = board.reshape((-1, board.shape[0], board.shape[1], board.shape[2]))
-        probs, v = policy_value_net.predict_board(board)
-        end = time.time()
-        print('cal time:', end - start)
-        pkl = pickle.dumps([probs, v], protocol=2)
-        s.sendto(pkl, addr)
-
+        data_buffer.append(board)
+        addr_buffer.append(addr)
+        if len(data_buffer) == batch_size:
+            start = time.time()
+            if batch_size > 1:
+                board = np.array(data_buffer, dtype=np.float32)
+            else:
+                board = data_buffer[0].reshape((-1, 5,9,9))
+            assert(board.shape == (batch_size,5,9,9))
+            lines = open('model.log').readlines() 
+            try:
+                if (len(lines) > 0 and lines[0].strip()=='1'):
+                    policy_value_net.update_predict(FileName)
+                    os.system('echo 0 > model.log')
+                    print('load new model', cnt)
+                    cnt += 1
+                probs, vs = policy_value_net.predict_board(board)
+            except:
+                probs, vs = policy_value_net.predict_board(board)
+            #print('probs.shape', probs.shape)
+            #print('vs.shape', vs.shape)
+            end = time.time()
+            
+            for i in range(batch_size):
+                pkl = pickle.dumps([probs[i], vs[i]], protocol=2)
+                s.sendto(pkl, addr_buffer[i])
+            data_buffer = []
+            addr_buffer = []
             
 data_Q = Queue()
 Q_producer = Process(target=producer, args=(data_Q, ))

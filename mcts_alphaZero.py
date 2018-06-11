@@ -130,23 +130,21 @@ class MCTS(object):
 
         start = time.time()
 
-        import pickle
-        pkl = pickle.dumps(state.current_state(), protocol=2)
-        s.sendto(pkl, addr)
+        if s:
+            import pickle
+            pkl = pickle.dumps(state.current_state(), protocol=2)
+            s.sendto(pkl, addr)
 
+            result, addr = s.recvfrom(20480)
+            acts_probs, leaf_value = pickle.loads(result)
 
-        result, addr = s.recvfrom(20480)
+            legal_positions = state.availables
+            legal_actprob = acts_probs[legal_positions]
+            action_probs = zip(legal_positions, legal_actprob)
+        else:
+            action_probs, leaf_value = self._policy(state)
 
-        #action_probs, leaf_value = self._policy(state)
-        acts_probs, leaf_value = pickle.loads(result)
-
-        legal_positions = state.availables
-        legal_actprob = acts_probs[legal_positions]
-        action_probs = zip(legal_positions, legal_actprob)
         
-        #print('action_probs', action_probs)
-        #print('leaf_value', leaf_value)
-
 
         end = time.time()
         time_info[2] += end - start
@@ -182,7 +180,7 @@ class MCTS(object):
         temp: temperature parameter in (0, 1] controls the level of exploration
         """
 
-        verbose = True
+        verbose = False
         start_all = time.time()
         in_time_info = [0,0,0,0,0]
         out_time_info = [0,0]

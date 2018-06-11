@@ -1,2 +1,6 @@
 *.pyc
 __pycache__/
+*.caffemodel
+*.model
+*.log
+*.json
