@@ -64,7 +64,7 @@ class PolicyValueNet():
 
         return fc_1
 
-    def create_backbone(self, input_states):
+    def create_backbone_old(self, input_states):
         """create the policy value network """   
        
         conv1 = self.conv_act(input_states, 64, (3, 3), name='conv1')
@@ -113,18 +113,12 @@ class PolicyValueNet():
         flatten = mx.sym.Flatten(conv_policy)       
         action = mx.sym.softmax(flatten, axis=1) 
 
-        #conv3_1_1 = self.conv_act(data, 4, (1, 1), name='conv3_1_1')
-        #flatten_1 = mx.sym.Flatten(conv3_1_1)       
-        #flatten_1 = mx.sym.Dropout(flatten_1, p=0.5)
-        #fc_3_1_1 = self.fc_self(flatten_1, self.board_height*self.board_width, name='fc_3_1_1')
-        #action = mx.sym.SoftmaxActivation(fc_3_1_1) 
-
         return action
 
     def value_head(self, data, name, stride=(1,1), bn_mom=0.9, workspace=512):
         bn1 = mx.sym.BatchNorm(data=data, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_bn1')
         act1 = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
-        conv1 = mx.sym.Convolution(data=act1, num_filter=1, kernel=(1,1), stride=stride, pad=(0,0),
+        conv1 = mx.sym.Convolution(data=act1, num_filter=4, kernel=(1,1), stride=stride, pad=(0,0),
                                       no_bias=True, workspace=workspace, name=name + '_conv1')
 
         bn2 = mx.sym.BatchNorm(data=conv1, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_bn2')
@@ -135,17 +129,10 @@ class PolicyValueNet():
         flatten = mx.sym.Flatten(conv_value)       
         value = mx.sym.Activation(flatten, act_type='tanh') 
 
-        #conv3_2_1 = self.conv_act(data, 2, (1, 1), name='conv3_2_1')
-        #flatten_2 = mx.sym.Flatten(conv3_2_1)
-        #flatten_2 = mx.sym.Dropout(flatten_2, p=0.5)
-        #fc_3_2_1 = self.fc_self(flatten_2, 1, name='fc_3_2_1')
-        #value = mx.sym.Activation(fc_3_2_1, act_type='tanh')
-
-
         return value
 
 
-    def create_backbone_resnet(self, input_states):
+    def create_backbone(self, input_states):
         """create the policy value network """   
 
         conv_base = mx.sym.Convolution(data=input_states, num_filter=128, kernel=(3,3), stride=(1,1), pad=(1,1),
@@ -424,7 +411,7 @@ class PolicyValueNetTrain():
 
         return fc_1
 
-    def create_backbone(self, input_states):
+    def create_backbone_old(self, input_states):
         """create the policy value network """   
        
         conv1 = self.conv_act(input_states, 64, (3, 3), name='conv1')
@@ -473,18 +460,12 @@ class PolicyValueNetTrain():
         flatten = mx.sym.Flatten(conv_policy)       
         action = mx.sym.softmax(flatten, axis=1) 
 
-        #conv3_1_1 = self.conv_act(data, 4, (1, 1), name='conv3_1_1')
-        #flatten_1 = mx.sym.Flatten(conv3_1_1)       
-        #flatten_1 = mx.sym.Dropout(flatten_1, p=0.5)
-        #fc_3_1_1 = self.fc_self(flatten_1, self.board_height*self.board_width, name='fc_3_1_1')
-        #action = mx.sym.SoftmaxActivation(fc_3_1_1) 
-
         return action
 
     def value_head(self, data, name, stride=(1,1), bn_mom=0.9, workspace=512):
         bn1 = mx.sym.BatchNorm(data=data, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_bn1')
         act1 = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
-        conv1 = mx.sym.Convolution(data=act1, num_filter=1, kernel=(1,1), stride=stride, pad=(0,0),
+        conv1 = mx.sym.Convolution(data=act1, num_filter=4, kernel=(1,1), stride=stride, pad=(0,0),
                                       no_bias=True, workspace=workspace, name=name + '_conv1')
 
         bn2 = mx.sym.BatchNorm(data=conv1, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_bn2')
@@ -495,17 +476,10 @@ class PolicyValueNetTrain():
         flatten = mx.sym.Flatten(conv_value)       
         value = mx.sym.Activation(flatten, act_type='tanh') 
 
-        #conv3_2_1 = self.conv_act(data, 2, (1, 1), name='conv3_2_1')
-        #flatten_2 = mx.sym.Flatten(conv3_2_1)
-        #flatten_2 = mx.sym.Dropout(flatten_2, p=0.5)
-        #fc_3_2_1 = self.fc_self(flatten_2, 1, name='fc_3_2_1')
-        #value = mx.sym.Activation(fc_3_2_1, act_type='tanh')
-
-
         return value
 
 
-    def create_backbone_resnet(self, input_states):
+    def create_backbone(self, input_states):
         """create the policy value network """   
 
         conv_base = mx.sym.Convolution(data=input_states, num_filter=128, kernel=(3,3), stride=(1,1), pad=(1,1),
@@ -519,7 +493,6 @@ class PolicyValueNetTrain():
         action = self.action_head(body, 'action')
         value = self.value_head(body, 'value')
         return action, value
-
 
 
     def create_backbone2(self, input_states):
@@ -678,7 +651,7 @@ class PolicyValueNetPredict():
 
         return fc_1
 
-    def create_backbone(self, input_states):
+    def create_backbone_old(self, input_states):
         """create the policy value network """   
        
         conv1 = self.conv_act(input_states, 64, (3, 3), name='conv1')
@@ -703,6 +676,61 @@ class PolicyValueNetPredict():
         evaluation = mx.sym.Activation(fc_3_2_1, act_type='tanh')
 
         return action_1, evaluation
+
+    def residual_unit(self, data, num_filter, name, stride=(1,1), bn_mom=0.9, workspace=512):
+        bn1 = mx.sym.BatchNorm(data=data, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_bn1')
+        act1 = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
+        conv1 = mx.sym.Convolution(data=act1, num_filter=num_filter, kernel=(3,3), stride=stride, pad=(1,1),
+                                      no_bias=True, workspace=workspace, name=name + '_conv1')
+        bn2 = mx.sym.BatchNorm(data=conv1, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_bn2')
+        act2 = mx.sym.Activation(data=bn2, act_type='relu', name=name + '_relu2')
+        conv2 = mx.sym.Convolution(data=act2, num_filter=num_filter, kernel=(3,3), stride=(1,1), pad=(1,1),
+                                      no_bias=True, workspace=workspace, name=name + '_conv2')
+        return conv2 + data
+        #return conv2
+
+
+    def action_head(self, data, name, stride=(1,1), bn_mom=0.9, workspace=512):
+        bn1 = mx.sym.BatchNorm(data=data, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_bn1')
+        act1 = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
+        conv_policy = mx.sym.Convolution(data=act1, num_filter=1, kernel=(1,1), stride=stride, pad=(0,0),
+                                      no_bias=False, workspace=workspace, name=name + '_conv1')
+        flatten = mx.sym.Flatten(conv_policy)       
+        action = mx.sym.softmax(flatten, axis=1) 
+
+        return action
+
+    def value_head(self, data, name, stride=(1,1), bn_mom=0.9, workspace=512):
+        bn1 = mx.sym.BatchNorm(data=data, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_bn1')
+        act1 = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
+        conv1 = mx.sym.Convolution(data=act1, num_filter=4, kernel=(1,1), stride=stride, pad=(0,0),
+                                      no_bias=True, workspace=workspace, name=name + '_conv1')
+
+        bn2 = mx.sym.BatchNorm(data=conv1, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_bn2')
+        act2 = mx.sym.Activation(data=bn2, act_type='relu', name=name + '_relu2')
+        conv_value = mx.sym.Convolution(data=act2, num_filter=1, kernel=(9,9), stride=stride, pad=(0,0),
+                                      no_bias=False, workspace=workspace, name=name + '_conv_value')
+
+        flatten = mx.sym.Flatten(conv_value)       
+        value = mx.sym.Activation(flatten, act_type='tanh') 
+
+        return value
+
+
+    def create_backbone(self, input_states):
+        """create the policy value network """   
+
+        conv_base = mx.sym.Convolution(data=input_states, num_filter=128, kernel=(3,3), stride=(1,1), pad=(1,1),
+                                      no_bias=True, workspace=512, name='conv_base')
+        act = mx.sym.Activation(data=conv_base, act_type='relu', name='conv_relu1')
+        #conv1 = self.conv_act(input_states, 32, (3, 3), name='conv1')
+        body = act
+        for i in range(10):
+            body = self.residual_unit(data=body, num_filter=128, name='conv_%d' % i)
+
+        action = self.action_head(body, 'action')
+        value = self.value_head(body, 'value')
+        return action, value
 
 
 

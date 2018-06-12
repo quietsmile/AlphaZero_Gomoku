@@ -20,8 +20,8 @@ s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 s.bind(address)  
 print('server is ready')
 
-batch_size = 512
-epochs = 5
+batch_size = 2048
+epochs = 1
 board_height = 9
 board_width = 9
 
@@ -97,13 +97,13 @@ def consumer(data_Q):
         extend_data = get_equi_data(image_infos)
         data_buffer.extend(extend_data)
         new_add += len(extend_data)
-        if new_add >= batch_size / 2. and len(data_buffer) >= batch_size:
+        if new_add >= batch_size and len(data_buffer) >= batch_size:
             if cnt < 100000:
-                lr = 2e-4
+                lr = 1e-1
             elif cnt < 200000:
-                lr = 2e-5
+                lr = 1e-3
             elif cnt < 300000:
-                lr = 1e-5
+                lr = 1e-4
             loss, entropy = policy_update(policy_value_net, lr)
             end = time.time()
             print('mini-batch', cnt, 'loss', loss, 'entropy', entropy, 'time', end - start)
